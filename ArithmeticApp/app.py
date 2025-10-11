@@ -15,7 +15,7 @@ def calculate():
         result = a - b
     elif op == 'mul':
         result = a * b
-    elif op == 'divv':
+    elif op == 'div':
         result = a / b
     else:
         return jsonify({'error': 'Invalid operation'})
