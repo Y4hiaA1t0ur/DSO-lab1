@@ -1,5 +1,7 @@
 # Use a lightweight official Python image
 FROM python:3.13-slim
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_ENV=production
 
 # Set working directory inside the container
 WORKDIR /app
