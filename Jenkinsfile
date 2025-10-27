@@ -76,7 +76,7 @@ pipeline {
                     echo '🐳 Building Docker image...'
                     sh '''
                         cd ${APP_DIR}
-                        docker-compose build
+                        docker compose build
                     '''
                 }
             }
@@ -95,7 +95,7 @@ pipeline {
                     echo '🚀 Deploying Flask app using Docker Compose...'
                     sh '''
                         cd ${APP_DIR}
-                        docker-compose up -d
+                        docker compose up -d
                     '''
                 }
             }
