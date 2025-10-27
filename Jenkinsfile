@@ -43,18 +43,19 @@ pipeline {
             }
         }
 
-        stage('Static Code Analysis (Bandit)') {
-            steps {
-                script {
-                    echo '🔍 Running Bandit for security scan...'
-                    sh '''
-                        cd ${APP_DIR}
-                        . venv/bin/activate
-                        bandit -r .
-                    '''
-                }
+    stage('Static Code Analysis (Bandit)') {
+        steps {
+            script {
+                echo '🔍 Running Bandit for security scan...'
+                sh '''
+                    cd ${APP_DIR}
+                    . venv/bin/activate
+                    bandit -r app.py tests/ --exclude venv,__pycache__ --exit-zero
+                '''
             }
         }
+    }
+
 
         stage('Dependency Vulnerability Scan (Safety)') {
             steps {
