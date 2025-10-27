@@ -81,17 +81,12 @@ pipeline {
             }
         }
 
-        stage('Container Vulnerability Scan (Trivy)') {
-            steps {
-                script {
-                    echo '🧯 Scanning Docker image with Trivy...'
-                    sh '''
-                        cd ${APP_DIR}
-                        trivy image ${IMAGE_NAME}:latest || true
-                    '''
-                }
-            }
+    stage('Container Vulnerability Scan (Trivy)') {
+        steps {
+            echo '🧯 (Skipping Trivy scan — not installed in Jenkins container)'
         }
+    }
+
 
         stage('Deploy Application') {
             steps {
