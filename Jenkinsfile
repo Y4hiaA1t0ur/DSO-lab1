@@ -62,23 +62,17 @@ pipeline {
                     sh '''
                         cd ${APP_DIR}
                         . venv/bin/activate
-
                         REPORT_NAME="bandit-report-build-${BUILD_NUMBER}.json"
 
-                        echo "📊 Running high-severity Bandit scan (fail on critical issues)..."
-                        bandit -r . \
-                            --include '*.py' \
-                            --exclude venv,__pycache__,tests,*.json,*.md,*.yml,*.yaml \
-                            --skip B108 \
-                            --severity-level high
+                        echo "📊 Running fail-fast Bandit scan (High severity)..."
+                        # 🚨 Fail build only if HIGH severity found
+                        bandit -r . --configfile bandit.yaml --severity-level high
 
-                        echo "💾 Generating full Bandit report (JSON format)..."
-                        bandit -r . \
-                            --include '*.py' \
-                            --exclude venv,__pycache__,tests,*.json,*.md,*.yml,*.yaml \
-                            --skip B108 \
-                            --severity-level medium \
-                            --format json | tee "$REPORT_NAME" || true
+                        echo "💾 Generating full Bandit report (all severities)..."
+                        # 🧾 This one must NOT fail the build
+                        bandit -r . --configfile bandit.yaml \
+                               --severity-level low \
+                               --format json | tee "$REPORT_NAME" || true
 
                         echo "🧾 Bandit JSON report saved as: $REPORT_NAME"
                     '''
@@ -89,10 +83,11 @@ pipeline {
                     archiveArtifacts artifacts: "${APP_DIR}/bandit-report-build-*.json", allowEmptyArchive: true
                 }
                 failure {
-                    echo '🚨 Bandit found high-severity vulnerabilities. Failing build.'
+                    echo '🚨 Bandit found high-severity issues — build failed.'
                 }
             }
         }
+
 
 
 
