@@ -67,12 +67,14 @@ pipeline {
 
                         echo "📊 Running high-severity Bandit scan (fail on critical issues)..."
                         bandit -r . \
+                            --include '*.py' \
                             --exclude venv,__pycache__,tests,*.json,*.md,*.yml,*.yaml \
                             --skip B108 \
                             --severity-level high
 
                         echo "💾 Generating full Bandit report (JSON format)..."
                         bandit -r . \
+                            --include '*.py' \
                             --exclude venv,__pycache__,tests,*.json,*.md,*.yml,*.yaml \
                             --skip B108 \
                             --severity-level medium \
@@ -91,6 +93,7 @@ pipeline {
                 }
             }
         }
+
 
 
 
