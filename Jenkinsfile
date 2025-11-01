@@ -158,42 +158,57 @@ pipeline {
                         IMAGE_NAME="arithmetic-app"
                         BUILD_TAG="build-${BUILD_NUMBER}"
                         FULL_IMAGE="${IMAGE_NAME}:${BUILD_TAG}"
+                        REPORT_NAME="trivy-report-build-${BUILD_NUMBER}.json"
 
                         echo "🔍 Scanning image: ${FULL_IMAGE}"
 
-                        REPORT_NAME="trivy-report-${BUILD_NUMBER}.json"
+                        # Create cache dir for faster scans
                         mkdir -p ${WORKSPACE}/.trivy-cache
 
-                        # 1️⃣ Full scan (JSON for report)
+                        # 1️⃣ Fail-fast scan for High/Critical issues (causes pipeline to fail)
+                        echo "🚨 Checking for HIGH/CRITICAL vulnerabilities..."
+                        docker run --rm \
+                            -v /var/run/docker.sock:/var/run/docker.sock \
+                            -v ${WORKSPACE}/.trivy-cache:/root/.cache/ \
+                            aquasec/trivy image \
+                            --severity HIGH,CRITICAL \
+                            --exit-code 1 \
+                            --ignore-unfixed \
+                            ${FULL_IMAGE}
+
+                        # 2️⃣ Full JSON scan for reporting (will NOT fail the build)
+                        echo "🧾 Generating complete Trivy JSON report (all severities)..."
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v ${WORKSPACE}/.trivy-cache:/root/.cache/ \
                             -v ${WORKSPACE}:/workspace \
                             aquasec/trivy image \
+                            --scanners vuln,secret \
                             --severity LOW,MEDIUM,HIGH,CRITICAL \
                             --format json \
                             -o /workspace/${REPORT_NAME} \
                             ${FULL_IMAGE} || true
 
-                        echo "🧾 Trivy JSON report saved: ${REPORT_NAME}"
+                        echo "✅ Trivy JSON report saved: ${REPORT_NAME}"
 
-                        # 2️⃣ Human-readable scan for Jenkins logs (full severity table)
+                        # 3️⃣ Optional: show a summarized readable report for Jenkins logs
+                        echo "📋 Summary of findings:"
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v ${WORKSPACE}/.trivy-cache:/root/.cache/ \
                             aquasec/trivy image \
                             --severity LOW,MEDIUM,HIGH,CRITICAL \
                             --ignore-unfixed \
-                            ${FULL_IMAGE}
+                            ${FULL_IMAGE} || true
                     '''
                 }
             }
             post {
                 always {
-                    archiveArtifacts artifacts: "trivy-report-*.json", allowEmptyArchive: true
+                    archiveArtifacts artifacts: "trivy-report-build-*.json", allowEmptyArchive: true
                 }
                 failure {
-                    echo '🚨 Trivy found critical vulnerabilities — build failed.'
+                    echo '🚨 Trivy found high or critical vulnerabilities — build failed.'
                 }
             }
         }
