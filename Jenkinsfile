@@ -151,92 +151,62 @@ pipeline {
 
 
         stage('Container Vulnerability Scan (Trivy)') {
+            environment {
+                TRIVY_SEVERITY = 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN'
+                TRIVY_FAIL_SEVERITY = 'CRITICAL'
+            }
             steps {
                 script {
-                    echo '🧯 Running Trivy vulnerability scan on Docker image...'
+                    echo '🧯 Running Trivy vulnerability scan...'
                     sh '''
-                        IMAGE_BASE="arithmetic-app"
-                        ALT_IMAGE_BASE="arithmeticapp-arithmetic-app"
-                        BUILD_TAG="build-${BUILD_NUMBER}"
-                        CANDIDATE1="${IMAGE_BASE}:${BUILD_TAG}"
-                        CANDIDATE2="${ALT_IMAGE_BASE}:${BUILD_TAG}"
-                        REPORT_NAME="trivy-report-build-${BUILD_NUMBER}.json"
-                        mkdir -p ${WORKSPACE}/.trivy-cache
+                        FULL_IMAGE="${IMAGE_NAME}:build-${BUILD_NUMBER}"
+                        REPORT_NAME="trivy-report-${BUILD_NUMBER}"
+                        CACHE_DIR="${WORKSPACE}/.trivy-cache"
 
-                        # pick an existing image (prefer explicit tag)
-                        if docker image inspect "${CANDIDATE1}" > /dev/null 2>&1; then
-                            FULL_IMAGE="${CANDIDATE1}"
-                        elif docker image inspect "${CANDIDATE2}" > /dev/null 2>&1; then
-                            FULL_IMAGE="${CANDIDATE2}"
-                        else
-                            echo "❗ No image found under ${CANDIDATE1} or ${CANDIDATE2}. Listing available images:"
-                            docker images | head -n 20
-                            exit 1
-                        fi
+                        echo "🔍 Scanning ${FULL_IMAGE}"
+                        mkdir -p ${CACHE_DIR}
 
-                        echo "🔍 Scanning image: ${FULL_IMAGE}"
-
-                        # 1) Fail-fast: fail job if HIGH/CRITICAL exist
-                        echo "🚨 Fail-fast scan (HIGH,CRITICAL)..."
+                        # Full scan with table output
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v ${WORKSPACE}/.trivy-cache:/root/.cache/ \
-                            aquasec/trivy image \
-                            --scanners vuln \
-                            --severity HIGH,CRITICAL \
-                            --exit-code 1 \
-                            --ignore-unfixed \
-                            ${FULL_IMAGE} || true
-
-                        # If the above returned non-zero and you want to actually fail the job, check exit code
-                        RC=$?
-                        if [ "$RC" -eq 1 ]; then
-                            echo "🟥 High/Critical vulnerabilities detected (fail-fast)."
-                            # Optional: fail the build (uncomment next line to enforce)
-                            # exit 1
-                        else
-                            echo "🟩 No HIGH/CRITICAL vulnerabilities found in fail-fast scan."
-                        fi
-
-                        # 2) Full JSON report (all severities) for archiving/analysis (does not fail)
-                        echo "💾 Generating full JSON report..."
-                        docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v ${WORKSPACE}/.trivy-cache:/root/.cache/ \
+                            -v ${CACHE_DIR}:/root/.cache/ \
                             -v ${WORKSPACE}:/workspace \
                             aquasec/trivy image \
-                            --scanners vuln,secret \
-                            --severity LOW,MEDIUM,HIGH,CRITICAL \
-                            --format json \
-                            -o /workspace/${REPORT_NAME} \
-                            ${FULL_IMAGE} || true
+                            --severity ${TRIVY_SEVERITY} \
+                            --exit-code 0 \
+                            --format table \
+                            -o /workspace/${REPORT_NAME}.txt \
+                            ${FULL_IMAGE}
 
-                        echo "✅ JSON report written to ${REPORT_NAME}"
-
-                        # 3) Pretty human-readable summary for Blue Ocean logs (table)
-                        echo "📋 Human-readable summary:"
+                        # JSON report for archival
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v ${WORKSPACE}/.trivy-cache:/root/.cache/ \
+                            -v ${CACHE_DIR}:/root/.cache/ \
+                            -v ${WORKSPACE}:/workspace \
                             aquasec/trivy image \
-                            --scanners vuln,secret \
-                            --severity LOW,MEDIUM,HIGH,CRITICAL \
-                            --ignore-unfixed \
-                            ${FULL_IMAGE} || true
+                            --severity ${TRIVY_SEVERITY} \
+                            --format json \
+                            -o /workspace/${REPORT_NAME}.json \
+                            ${FULL_IMAGE}
+
+                        # Policy enforcement
+                        echo "🚨 Enforcing policy: fail on ${TRIVY_FAIL_SEVERITY}"
+                        docker run --rm \
+                            -v /var/run/docker.sock:/var/run/docker.sock \
+                            -v ${CACHE_DIR}:/root/.cache/ \
+                            aquasec/trivy image \
+                            --severity ${TRIVY_FAIL_SEVERITY} \
+                            --exit-code 1 \
+                            ${FULL_IMAGE}
                     '''
                 }
             }
             post {
                 always {
-                    archiveArtifacts artifacts: "trivy-report-build-*.json", allowEmptyArchive: true
-                }
-                failure {
-                    echo '🚨 Trivy stage detected issues.'
+                    archiveArtifacts artifacts: "trivy-report-*.json,trivy-report-*.txt", allowEmptyArchive: true
                 }
             }
         }
-
-
 
         stage('Deploy Application') {
             steps {
