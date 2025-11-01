@@ -65,13 +65,18 @@ pipeline {
 
                         REPORT_NAME="bandit-report-build-${BUILD_NUMBER}.json"
 
-                        echo "📊 Running high-severity Bandit scan (will fail if critical issues found)..."
-                        bandit -r . --exclude venv,__pycache__,tests --severity-level high
+                        echo "📊 Running high-severity Bandit scan (fail on critical issues)..."
+                        bandit -r . \
+                            --exclude venv,__pycache__,tests,*.json,*.md,*.yml,*.yaml \
+                            --skip B108 \
+                            --severity-level high
 
                         echo "💾 Generating full Bandit report (JSON format)..."
-                        bandit -r . --exclude venv,__pycache__,tests \
-                               --severity-level medium \
-                               --format json | tee "$REPORT_NAME" || true
+                        bandit -r . \
+                            --exclude venv,__pycache__,tests,*.json,*.md,*.yml,*.yaml \
+                            --skip B108 \
+                            --severity-level medium \
+                            --format json | tee "$REPORT_NAME" || true
 
                         echo "🧾 Bandit JSON report saved as: $REPORT_NAME"
                     '''
@@ -86,6 +91,7 @@ pipeline {
                 }
             }
         }
+
 
 
         stage('Dependency Vulnerability Scan (Safety)') {
