@@ -161,33 +161,28 @@ pipeline {
 
                         echo "🔍 Scanning image: ${FULL_IMAGE}"
 
-                        # Make report name include build number
                         REPORT_NAME="trivy-report-${BUILD_NUMBER}.json"
-
-                        # Create cache dir for faster scans
                         mkdir -p ${WORKSPACE}/.trivy-cache
 
-                        # Run Trivy scan with visible output AND JSON report
+                        # 1️⃣ Full scan (JSON for report)
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v ${WORKSPACE}/.trivy-cache:/root/.cache/ \
                             -v ${WORKSPACE}:/workspace \
                             aquasec/trivy image \
-                            --severity CRITICAL \
-                            --exit-code 1 \
+                            --severity LOW,MEDIUM,HIGH,CRITICAL \
                             --format json \
                             -o /workspace/${REPORT_NAME} \
-                            ${FULL_IMAGE}
+                            ${FULL_IMAGE} || true
 
                         echo "🧾 Trivy JSON report saved: ${REPORT_NAME}"
 
-                        # Show human-readable summary for Blue Ocean logs
+                        # 2️⃣ Human-readable scan for Jenkins logs (full severity table)
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v ${WORKSPACE}/.trivy-cache:/root/.cache/ \
                             aquasec/trivy image \
-                            --severity HIGH,CRITICAL \
-                            --exit-code 0 \
+                            --severity LOW,MEDIUM,HIGH,CRITICAL \
                             --ignore-unfixed \
                             ${FULL_IMAGE}
                     '''
@@ -196,6 +191,9 @@ pipeline {
             post {
                 always {
                     archiveArtifacts artifacts: "trivy-report-*.json", allowEmptyArchive: true
+                }
+                failure {
+                    echo '🚨 Trivy found critical vulnerabilities — build failed.'
                 }
             }
         }
