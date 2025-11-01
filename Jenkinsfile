@@ -85,11 +85,12 @@ pipeline {
     stage('Container Vulnerability Scan (Trivy)') {
         steps {
             script {
-                echo '🧯 Scanning Docker image with Trivy (via container)...'
+                echo '🧯 Scanning Docker image with Trivy...'
                 sh '''
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
-                        aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 ${IMAGE_NAME}:latest
+                        -v /root/.cache/trivy:/root/.cache/ \
+                        aquasec/trivy image --severity HIGH,CRITICAL --exit-code 0 arithmeticapp-arithmetic-app:latest
                 '''
             }
         }
