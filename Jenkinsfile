@@ -171,8 +171,6 @@ pipeline {
                             aquasec/trivy image \
                             --severity CRITICAL \
                             --exit-code 1 \
-                            --severity HIGH \
-                            --exit-code 0 \
                             --format json \
                             -o /workspace/${REPORT_NAME} \
                             ${FULL_IMAGE}
@@ -230,7 +228,7 @@ pipeline {
                 }
             }
         }
-
+    }
 
     post {
         always {
