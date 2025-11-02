@@ -151,64 +151,71 @@ pipeline {
 
 
         stage('Container Vulnerability Scan (Trivy)') {
-            environment {
-                TRIVY_SEVERITY = 'CRITICAL,HIGH,MEDIUM,LOW'
-                TRIVY_FAIL_SEVERITY = 'CRITICAL,HIGH'
+          environment {
+            TRIVY_SEVERITY = 'CRITICAL,HIGH,MEDIUM,LOW'
+            TRIVY_FAIL_SEVERITY = 'CRITICAL,HIGH'
+          }
+          steps {
+            script {
+              sh '''
+                FULL_IMAGE="${IMAGE_NAME}:build-${BUILD_NUMBER}"
+                REPORT_NAME="trivy-report-${BUILD_NUMBER}"
+                CACHE_DIR="${WORKSPACE}/.trivy-cache"
+
+                echo "🔍 Full vulnerability scan: ${TRIVY_SEVERITY}"
+                mkdir -p "${CACHE_DIR}"
+
+                # Human-readable table -> write to the HOST workspace (not /workspace)
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v "${CACHE_DIR}:/root/.cache/" \
+                  -v "${WORKSPACE}:/workspace" \
+                  aquasec/trivy image \
+                  --severity "${TRIVY_SEVERITY}" \
+                  --exit-code 0 \
+                  --format table \
+                  "${FULL_IMAGE}" | tee "${WORKSPACE}/${REPORT_NAME}.txt"
+
+                # JSON report -> path inside container works because we mounted ${WORKSPACE}:/workspace
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v "${CACHE_DIR}:/root/.cache/" \
+                  -v "${WORKSPACE}:/workspace" \
+                  aquasec/trivy image \
+                  --severity "${TRIVY_SEVERITY}" \
+                  --format json \
+                  -o "/workspace/${REPORT_NAME}.json" \
+                  "${FULL_IMAGE}"
+
+                echo "🚨 Policy check: fail only on HIGH/CRITICAL"
+                set +e
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v "${CACHE_DIR}:/root/.cache/" \
+                  aquasec/trivy image \
+                  --severity "${TRIVY_FAIL_SEVERITY}" \
+                  --exit-code 1 \
+                  --format table \
+                  "${FULL_IMAGE}"
+                EXIT_CODE=$?
+                set -e
+
+                if [ "$EXIT_CODE" -eq 1 ]; then
+                  echo "❌ HIGH/CRITICAL found"; exit 1
+                else
+                  echo "✅ No HIGH/CRITICAL — continuing..."
+                fi
+              '''
             }
-            steps {
-                script {
-                    echo '🧯 Running Trivy vulnerability scan...'
-                    sh '''
-                        FULL_IMAGE="${IMAGE_NAME}:build-${BUILD_NUMBER}"
-                        REPORT_NAME="trivy-report-${BUILD_NUMBER}"
-                        CACHE_DIR="${WORKSPACE}/.trivy-cache"
-
-                        echo "🔍 Full vulnerability scan: ${TRIVY_SEVERITY}"
-                        mkdir -p ${CACHE_DIR}
-
-                        # Full scan - display in Jenkins logs and save to file
-                        docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v ${CACHE_DIR}:/root/.cache/ \
-                            -v ${WORKSPACE}:/workspace \
-                            aquasec/trivy image \
-                            --severity ${TRIVY_SEVERITY} \
-                            --exit-code 0 \
-                            --format table \
-                            ${FULL_IMAGE} | tee /workspace/${REPORT_NAME}.txt
-
-                        # JSON report for automation/archival
-                        docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v ${CACHE_DIR}:/root/.cache/ \
-                            -v ${WORKSPACE}:/workspace \
-                            aquasec/trivy image \
-                            --severity ${TRIVY_SEVERITY} \
-                            --format json \
-                            -o /workspace/${REPORT_NAME}.json \
-                            ${FULL_IMAGE}
-
-                        # Policy enforcement: Only fail on HIGH or CRITICAL
-                        echo "🚨 Policy check: Build will fail ONLY on HIGH or CRITICAL vulnerabilities"
-                        docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v ${CACHE_DIR}:/root/.cache/ \
-                            aquasec/trivy image \
-                            --severity ${TRIVY_FAIL_SEVERITY} \
-                            --exit-code 1 \
-                            --format table \
-                            ${FULL_IMAGE}
-                    '''
-                }
+          }
+          post {
+            always {
+              archiveArtifacts artifacts: 'trivy-report-*.json,trivy-report-*.txt', allowEmptyArchive: true
             }
-            post {
-                always {
-                    archiveArtifacts artifacts: "trivy-report-*.json,trivy-report-*.txt", allowEmptyArchive: true
-                }
-                failure {
-                    echo '🚨 Build failed: HIGH or CRITICAL vulnerabilities detected'
-                }
+            failure {
+              echo '🚨 Build failed: HIGH or CRITICAL vulnerabilities detected'
             }
+          }
         }
 
         stage('Deploy Application') {
