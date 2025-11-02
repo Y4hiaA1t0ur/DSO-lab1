@@ -152,8 +152,8 @@ pipeline {
 
         stage('Container Vulnerability Scan (Trivy)') {
             environment {
-                TRIVY_SEVERITY = 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN'
-                TRIVY_FAIL_SEVERITY = 'CRITICAL'
+                TRIVY_SEVERITY = 'CRITICAL,HIGH,MEDIUM,LOW'
+                TRIVY_FAIL_SEVERITY = 'CRITICAL,HIGH'
             }
             steps {
                 script {
@@ -163,10 +163,10 @@ pipeline {
                         REPORT_NAME="trivy-report-${BUILD_NUMBER}"
                         CACHE_DIR="${WORKSPACE}/.trivy-cache"
 
-                        echo "🔍 Scanning ${FULL_IMAGE}"
+                        echo "🔍 Full vulnerability scan: ${TRIVY_SEVERITY}"
                         mkdir -p ${CACHE_DIR}
 
-                        # Full scan with table output
+                        # Full scan - display in Jenkins logs and save to file
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v ${CACHE_DIR}:/root/.cache/ \
@@ -175,10 +175,9 @@ pipeline {
                             --severity ${TRIVY_SEVERITY} \
                             --exit-code 0 \
                             --format table \
-                            -o /workspace/${REPORT_NAME}.txt \
-                            ${FULL_IMAGE}
+                            ${FULL_IMAGE} | tee /workspace/${REPORT_NAME}.txt
 
-                        # JSON report for archival
+                        # JSON report for automation/archival
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v ${CACHE_DIR}:/root/.cache/ \
@@ -189,14 +188,15 @@ pipeline {
                             -o /workspace/${REPORT_NAME}.json \
                             ${FULL_IMAGE}
 
-                        # Policy enforcement
-                        echo "🚨 Enforcing policy: fail on ${TRIVY_FAIL_SEVERITY}"
+                        # Policy enforcement: Fail build on high-severity issues
+                        echo "🚨 Policy check: Build will fail on ${TRIVY_FAIL_SEVERITY}"
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v ${CACHE_DIR}:/root/.cache/ \
                             aquasec/trivy image \
                             --severity ${TRIVY_FAIL_SEVERITY} \
                             --exit-code 1 \
+                            --format table \
                             ${FULL_IMAGE}
                     '''
                 }
