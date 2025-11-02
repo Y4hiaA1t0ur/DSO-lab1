@@ -249,15 +249,10 @@ stage('Container Vulnerability Scan (Trivy)') {
         }
     }
 
-post {
-  always {
-    sh '''
-      mkdir -p archived
-      find . -type f \\( -name "trivy-report-*" -o -name "bandit-report-*" -o -name "safety-report-*" \\) \
-        -exec mv {} archived/ \\;
-    '''
-    archiveArtifacts artifacts: 'archived/**'
-    cleanWs()
-  }
-}
+    post {
+        always {
+            echo '🧹 Cleaning up workspace...'
+            cleanWs()
+        }
+    }
 }
