@@ -1,7 +1,9 @@
 import os
-
+from flask import Flask, jsonify, request, Response
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
-from flask import Response, request
+
+# Create the Flask app first ✅
+app = Flask(__name__)
 
 # Define a simple counter
 REQUEST_COUNT = Counter(
@@ -10,20 +12,20 @@ REQUEST_COUNT = Counter(
     ['method', 'endpoint']
 )
 
+# Increment counter for every request
 @app.before_request
 def before_request():
     REQUEST_COUNT.labels(method=request.method, endpoint=request.path).inc()
 
+# Metrics endpoint
 @app.route("/metrics")
 def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
-app = Flask(__name__)
-
-
+# Your calculator route
 @app.route('/calculate', methods=['GET'])
 def calculate():
-    op = request.args.get('op')  # operation: add, sub, mul, div
+    op = request.args.get('op')
     a = float(request.args.get('a'))
     b = float(request.args.get('b'))
 
