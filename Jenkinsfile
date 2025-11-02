@@ -188,8 +188,8 @@ pipeline {
                             -o /workspace/${REPORT_NAME}.json \
                             ${FULL_IMAGE}
 
-                        # Policy enforcement: Fail build on high-severity issues
-                        echo "🚨 Policy check: Build will fail on ${TRIVY_FAIL_SEVERITY}"
+                        # Policy enforcement: Only fail on HIGH or CRITICAL
+                        echo "🚨 Policy check: Build will fail ONLY on HIGH or CRITICAL vulnerabilities"
                         docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v ${CACHE_DIR}:/root/.cache/ \
@@ -204,6 +204,9 @@ pipeline {
             post {
                 always {
                     archiveArtifacts artifacts: "trivy-report-*.json,trivy-report-*.txt", allowEmptyArchive: true
+                }
+                failure {
+                    echo '🚨 Build failed: HIGH or CRITICAL vulnerabilities detected'
                 }
             }
         }
