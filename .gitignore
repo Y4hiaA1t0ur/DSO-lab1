@@ -314,6 +314,19 @@ fabric.properties
 # idea folder, uncomment if you don't need it
 .idea
 
-measurement-logging/loki-data/
-measurement-logging/loki-wal/
-measurement-logging/prometheus-data/
+# Loki data
+loki-data/
+loki-wal/
+
+# Prometheus data
+prometheus-data/
+
+# Docker and monitoring
+*.log
+*.pid
+*.sock
+
+# Python virtual environments
+venv/
+__pycache__/
+*.pyc
