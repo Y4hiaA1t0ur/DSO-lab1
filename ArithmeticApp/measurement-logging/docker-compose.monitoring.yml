@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/config/config.yaml --server.http-listen-address=0.0.0.0
+    volumes:
+      - D:/studying-main-folder/code/python/AnomalyDetection/DSO-lab1/ArithmeticApp/measurement-logging/loki-config.yml:/etc/loki/config/config.yaml
+      - D:/studying-main-folder/code/python/AnomalyDetection/DSO-lab1/ArithmeticApp/measurement-logging/loki-data:/loki
+      - D:/studying-main-folder/code/python/AnomalyDetection/DSO-lab1/ArithmeticApp/measurement-logging/loki-wal:/wal   # 👈 add this
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+
+
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+networks:
+  monitoring:
+
+volumes:
+  grafana_data:

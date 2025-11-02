@@ -313,3 +313,7 @@ fabric.properties
 
 # idea folder, uncomment if you don't need it
 .idea
+
+measurement-logging/loki-data/
+measurement-logging/loki-wal/
+measurement-logging/prometheus-data/
