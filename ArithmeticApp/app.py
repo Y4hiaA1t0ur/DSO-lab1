@@ -1,6 +1,22 @@
 import os
 
-from flask import Flask, request, jsonify
+from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
+from flask import Response, request
+
+# Define a simple counter
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total number of HTTP requests',
+    ['method', 'endpoint']
+)
+
+@app.before_request
+def before_request():
+    REQUEST_COUNT.labels(method=request.method, endpoint=request.path).inc()
+
+@app.route("/metrics")
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 app = Flask(__name__)
 

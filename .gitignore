@@ -321,12 +321,8 @@ loki-wal/
 # Prometheus data
 prometheus-data/
 
-# Docker and monitoring
-*.log
 *.pid
 *.sock
 
-# Python virtual environments
-venv/
-__pycache__/
+
 *.pyc
