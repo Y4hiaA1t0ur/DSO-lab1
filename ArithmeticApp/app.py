@@ -18,7 +18,7 @@ def before_request():
     REQUEST_COUNT.labels(method=request.method, endpoint=request.path).inc()
 
 # Metrics endpoint
-@app.route("/metrics")
+@app.route("/metrics", methods=['GET'])
 def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
@@ -45,4 +45,5 @@ def calculate():
 
 if __name__ == "__main__":
     debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode) # nosec B104
+    host = os.getenv("FLASK_HOST", "127.0.0.1")
+    app.run(host=host, port=5000, debug=debug_mode) # nosec B104
