@@ -42,6 +42,24 @@ def calculate():
 
     return jsonify({'result': result})
 
+@app.route('/calculate', methods=['GET'])
+def calculate():
+    op = request.args.get('op')
+    a = float(request.args.get('a'))
+    b = float(request.args.get('b'))
+
+    if op == 'add':
+        result = a + b
+    elif op == 'sub':
+        result = a - b
+    elif op == 'mul':
+        result = a * b
+    elif op == 'div':
+        result = a / b
+    else:
+        return jsonify({'error': 'Invalid operation'})
+
+
 
 if __name__ == "__main__":
     debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
