@@ -34,13 +34,14 @@ rebuild_container() {
     docker build -t $IMAGE_NAME .
     docker run -d -p 5000:5000 --name $CONTAINER_NAME $IMAGE_NAME
     echo "✅ Redeployment complete! Running latest version at http://localhost:5000"
+    return 0
 }
 
 # --- Main loop ---
 while true; do
     # Check for local file changes
     NEW_HASH=$(find $WATCH_DIR -type f \( -name "*.py" -o -name "Dockerfile" \) -exec md5sum {} \; | md5sum)
-    if [ "$NEW_HASH" != "$LAST_HASH" ]; then
+    if [[ "$NEW_HASH" != "$LAST_HASH" ]]; then
         echo "📝 Local change detected! Rebuilding..."
         LAST_HASH=$NEW_HASH
         rebuild_container
@@ -49,7 +50,7 @@ while true; do
     # Check for new Git commits
     git fetch origin $BRANCH >/dev/null 2>&1
     NEW_COMMIT=$(git rev-parse origin/$BRANCH 2>/dev/null)
-    if [ "$NEW_COMMIT" != "$LAST_COMMIT" ]; then
+    if [[ "$NEW_COMMIT" != "$LAST_COMMIT" ]]; then
         echo "🔄 New remote commit detected!"
         echo "Old commit: $LAST_COMMIT"
         echo "New commit: $NEW_COMMIT"

@@ -18,9 +18,22 @@ def before_request():
     REQUEST_COUNT.labels(method=request.method, endpoint=request.path).inc()
 
 # Metrics endpoint
-@app.route("/metrics")
+@app.route("/metrics", methods=["GET"])
 def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
+
+def _calculate_result(op: str, a: float, b: float):
+    if op == 'add':
+        return a + b
+    if op == 'sub':
+        return a - b
+    if op == 'mul':
+        return a * b
+    if op == 'div':
+        return a / b
+    return None
+
 
 # Your calculator route
 @app.route('/calculate', methods=['GET'])
@@ -29,38 +42,13 @@ def calculate():
     a = float(request.args.get('a'))
     b = float(request.args.get('b'))
 
-    if op == 'add':
-        result = a + b
-    elif op == 'sub':
-        result = a - b
-    elif op == 'mul':
-        result = a * b
-    elif op == 'div':
-        result = a / b
-    else:
+    result = _calculate_result(op, a, b)
+    if result is None:
         return jsonify({'error': 'Invalid operation'})
 
     return jsonify({'result': result})
 
-@app.route('/calculate', methods=['GET'])
-def calculate():
-    op = request.args.get('op')
-    a = float(request.args.get('a'))
-    b = float(request.args.get('b'))
-
-    if op == 'add':
-        result = a + b
-    elif op == 'sub':
-        result = a - b
-    elif op == 'mul':
-        result = a * b
-    elif op == 'div':
-        result = a / b
-    else:
-        return jsonify({'error': 'Invalid operation'})
-
-
-
 if __name__ == "__main__":
     debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode) # nosec B104
+    host = os.getenv("FLASK_HOST", "127.0.0.1")
+    app.run(host=host, port=5000, debug=debug_mode)  # nosec B104
